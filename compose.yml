@@ -1,0 +1,113 @@
+services:
+  filestorage_api:
+    build:
+      context: .
+      target: development
+    container_name: filestorage_api
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - filestorage_hot:/hot-storage
+    depends_on:
+      filestorage_redis:
+        condition: service_healthy
+      filestorage_rabbitmq:
+        condition: service_healthy
+      filestorage_minio:
+        condition: service_healthy 
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - filestorage-network
+    restart: unless-stopped
+  
+  filestorage_redis:
+    image: redis:8-alpine
+    container_name: filestorage_redis
+    command: redis-server --save "" --appendonly no
+    volumes:
+      - filestorage_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - filestorage-network
+    restart: unless-stopped
+  
+  filestorage_rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: filestorage_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - filestorage_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - filestorage-network
+    restart: unless-stopped
+  
+  filestorage_minio:
+    image: minio/minio:latest
+    container_name: filestorage_minio
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - filestorage_minio_data:/data
+    ports:
+      - "9000:9000" # MinIO S3 API
+      - "9001:9001" # MinIO Console
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - filestorage-network
+    restart: unless-stopped
+
+
+volumes:
+  filestorage_hot:
+    name: filestorage_hot
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/data/hot
+      o: bind
+
+  filestorage_redis_data:
+    name: filestorage_redis_data
+    driver: local
+
+  filestorage_rabbitmq_data:
+    name: filestorage_rabbitmq_data
+    driver: local
+
+  filestorage_minio_data:
+    name: filestorage_minio_data
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/data/archive
+      o: bind 
+
+networks:
+  filestorage-network:
+    name: filestorage-network
+    driver: bridge
