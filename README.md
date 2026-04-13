@@ -8,7 +8,7 @@ This document records design decisions made during implementation to resolve amb
 
 ---
 
-### D-01 — File Identifier Uniqueness Scope
+### File Identifier Uniqueness Scope
 
 **Doubt**: Are file identifiers required to be globally unique, or only unique within their `type`?
 
@@ -19,5 +19,13 @@ This document records design decisions made during implementation to resolve amb
 - Cache key format becomes `file:{type}:{id}` (composite).
 - The API does not enforce global uniqueness.
 - Clients must include the `type` parameter in all operations.
+
+---
+
+# TODOs
+
+### Interface for configuration can be helpfull
+
+**TODO-1**: IInterface for configuration can be helpfull
 
 ---
