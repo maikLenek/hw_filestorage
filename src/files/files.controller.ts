@@ -10,38 +10,54 @@ import {
   InternalServerErrorException,
   HttpCode,
   Get,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { FilesService } from './files.service';
+import { memoryStorage } from 'multer';
 import { FileMeta } from '../cache/file-cache.service';
+import { UploadFileResponseDto } from './dto/upload-file.dto';
+import { FileParamPipe } from './pipes/file-param.pipe';
 
 @Controller({ path: 'files', version: '1' })
 export class FilesController {
+  private readonly maxFileSize: number;
   constructor(
     private filesService: FilesService,
     private configService: ConfigService,
-  ) {}
-
-  @Get()
-  async dupa() {
-    console.log('sosrormo');
-    await this.filesService.uploadFileTest();
+  ) {
+    this.maxFileSize =
+      this.configService.get('app.upload.maxSizeBytes') | 104857600;
   }
 
-  /**
-   * Validate type and id against allowlist
-   * Allowed: alphanumeric, hyphen, underscore (1-128 chars)
-   */
-  private validateTypeAndId(type: string, id: string): void {
-    const allowlist = /^[a-zA-Z0-9_-]{1,128}$/;
-
-    if (!allowlist.test(type)) {
-      throw new BadRequestException(`Invalid type: must match ${allowlist}`);
+  @Post(':type/:id')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 104_857_600 },
+    }),
+  )
+  async upload(
+    @Param('type', FileParamPipe) type: string,
+    @Param('id', FileParamPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<UploadFileResponseDto> {
+    if (!file) {
+      throw new BadRequestException('Missing file field in multipart body');
+    }
+    if (file.size > this.maxFileSize) {
+      throw new BadRequestException(
+        `File size ${file.size} exceeds limit of ${this.maxFileSize} bytes`,
+      );
     }
 
-    if (!allowlist.test(id)) {
-      throw new BadRequestException(`Invalid id: must match ${allowlist}`);
-    }
+    return this.filesService.upload(
+      type,
+      id,
+      file.buffer,
+      file.mimetype ?? 'application/octet-stream',
+    );
   }
 }

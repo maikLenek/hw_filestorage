@@ -22,7 +22,6 @@ export class HealthController {
   @HealthCheck()
   check() {
     return this.health.check([
-      // TODO: Add health check for redis
       // TODO: Add healt check for disk
       async () =>
         this.microservice.pingCheck<RedisOptions>('redis', {

@@ -16,7 +16,7 @@ import { FILE_IDENT_REGEX } from './storage.constants';
 
 @Injectable()
 export class HotStorageService {
-  private readonly logger = new Logger('filestorage:hot-storage');
+  private readonly logger = new Logger(HotStorageService.name);
   private readonly hotStoragePath: string;
 
   constructor(private configService: ConfigService) {
@@ -77,35 +77,16 @@ export class HotStorageService {
     return filePath;
   }
 
-  async exists(type: string, id: string): Promise<boolean> {
-    const filePath = this.buildFilePath(type, id);
-
-    try {
-      await fs.access(filePath, fsSync.constants.F_OK);
-      return true;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
-        return false;
-      }
-
-      this.logger.warn(
-        `filestorage:hot-storage exists-error type=${type} id=${id}`,
-        error instanceof Error ? error.message : String(error),
-      );
-      return false;
-    }
+  private buildTmpPath(type: string, id: string): string {
+    return `${this.buildFilePath(type, id)}.tmp`;
   }
 
-  async write(
+  write(
     type: string,
     id: string,
     data: Buffer | Readable,
     contentLength: number,
-  ): Promise<void> {
+  ): void {
     const filePath = this.buildFilePath(type, id);
 
     this.logger.log(
@@ -114,7 +95,7 @@ export class HotStorageService {
 
     try {
       // Check if file already exists
-      const exists = await this.exists(type, id);
+      const exists = this.exists(type, id);
       if (exists) {
         this.logger.warn(
           `filestorage:hot-storage conflict type=${type} id=${id}`,
@@ -126,21 +107,26 @@ export class HotStorageService {
 
       // Create directory structure (mkdir -p equivalent)
       const directory = path.dirname(filePath);
-      await fs.mkdir(directory, { recursive: true });
+      fsSync.mkdirSync(directory, { recursive: true });
 
       // Write to temporary file first (atomic write pattern)
-      const tempPath = `${filePath}.tmp`;
+      const tempPath = this.buildTmpPath(type, id);
 
-      // Buffer write
-      await fs.writeFile(tempPath, data, { flag: 'w' });
+      if (data instanceof Readable) {
+        const stream = fsSync.createWriteStream(tempPath);
+        data.pipe(stream);
+      } else {
+        fsSync.writeFileSync(tempPath, data);
+      }
 
       // Atomic rename: move temp → final path
-      await fs.rename(tempPath, filePath);
+      fsSync.renameSync(tempPath, filePath);
 
       this.logger.debug(
         `filestorage:hot-storage write-complete type=${type} id=${id}`,
       );
     } catch (error) {
+      fsSync.unlinkSync(filePath);
       if (error instanceof ConflictException) {
         throw error;
       }
@@ -159,6 +145,7 @@ export class HotStorageService {
     }
   }
 
+  // TODO: convert to synch
   async read(type: string, id: string): Promise<StreamableFile> {
     const filePath = this.buildFilePath(type, id);
 
@@ -166,7 +153,7 @@ export class HotStorageService {
 
     try {
       // Check if file exists before opening
-      const fileExists = await this.exists(type, id);
+      const fileExists = this.exists(type, id);
       if (!fileExists) {
         this.logger.warn(
           `filestorage:hot-storage read-not-found type=${type} id=${id}`,
@@ -206,6 +193,7 @@ export class HotStorageService {
     }
   }
 
+  // TODO: convert to synch
   async delete(type: string, id: string): Promise<void> {
     const filePath = this.buildFilePath(type, id);
 
@@ -231,6 +219,29 @@ export class HotStorageService {
       throw new InternalServerErrorException(
         `Failed to delete file: ${error instanceof Error ? error.message : 'unknown error'}`,
       );
+    }
+  }
+
+  exists(type: string, id: string): boolean {
+    const filePath = this.buildFilePath(type, id);
+
+    try {
+      fsSync.accessSync(filePath, fsSync.constants.F_OK);
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return false;
+      }
+
+      this.logger.warn(
+        `filestorage:hot-storage exists-error type=${type} id=${id}`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return false;
     }
   }
 }
