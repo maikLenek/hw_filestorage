@@ -1,51 +1,24 @@
-# Stage 1: Base dependencies and build tools
-FROM node:20-alpine AS dependencies
+# ─── Base stage ───────────────────────────────────────────────────────────────
+FROM node:25-alpine AS base
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
-
-# Stage 2: Development target - for local development with hot reload
-FROM dependencies AS development
-
-WORKDIR /app
-
-# Copy entire source code
+# ─── Development stage ────────────────────────────────────────────────────────
+FROM base AS development
+RUN npm ci
 COPY . .
-
-# Expose debug port and application port
-EXPOSE 9229 3000
-
-# Run with ts-node for development (hot reload)
 CMD ["npm", "run", "start:dev"]
 
-# Stage 3: Build stage - compile TypeScript
-FROM dependencies AS build
-
-WORKDIR /app
-
+# ─── Build stage ──────────────────────────────────────────────────────────────
+FROM base AS build
+RUN npm ci
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Stage 4: Production target - minimal runtime image
-FROM node:20-alpine AS production
-
+# ─── Production stage (default target) ────────────────────────────────────────
+FROM node:25-alpine AS production
 WORKDIR /app
-
-# Install only production dependencies in a fresh image
 COPY package*.json ./
-RUN npm ci --only=production --legacy-peer-deps
-
-# Copy compiled application from build stage
+RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-
-# Expose application port only (no debug port in production)
-EXPOSE 3000
-
-# Run the compiled application
 CMD ["node", "dist/main.js"]

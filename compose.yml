@@ -2,7 +2,7 @@ services:
   filestorage_api:
     build:
       context: .
-      target: development
+      target: production
     container_name: filestorage_api
     env_file: .env
     environment:
