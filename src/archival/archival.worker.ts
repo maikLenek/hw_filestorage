@@ -20,6 +20,7 @@ export class ArchivalWorker {
     @Payload() data: ArchiveJobDto,
     @Ctx() ctx: RmqContext,
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const channel = ctx.getChannelRef();
     const message = ctx.getMessage();
     const { type, id, createdAt } = data;
@@ -30,6 +31,7 @@ export class ArchivalWorker {
         this.logger.log(
           `filestorage:archival skip type=${type} id=${id} reason=already-archived`,
         );
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         channel.ack(message);
         return;
       }
@@ -58,6 +60,7 @@ export class ArchivalWorker {
         contentType,
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       channel.ack(message);
 
       this.logger.log(
@@ -69,6 +72,7 @@ export class ArchivalWorker {
         (err as Error).stack,
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       channel.nack(message, false, false);
     }
   }

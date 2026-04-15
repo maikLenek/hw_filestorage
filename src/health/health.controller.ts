@@ -24,7 +24,7 @@ export class HealthController {
   @HealthCheck()
   check() {
     const storagePath =
-      this.configService.get<string>('app.hotStorage.apth') ?? '/hot-storage';
+      this.configService.get<string>('app.hotStorage.path') ?? '/hot-storage';
     return this.health.check([
       async () =>
         this.disk.checkStorage('storage', {

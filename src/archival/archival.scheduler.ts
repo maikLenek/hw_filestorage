@@ -21,24 +21,35 @@ export class ArchivalScheduler implements OnModuleInit {
     private readonly fileCacheService: FileCacheService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    const cronExpression = this.configService.get<string>(
-      'app.archival.cronExpression',
-    );
+  onModuleInit(): void {
+    try {
+      const cronExp = this.configService.get<string>(
+        'app.archival.cronExpression',
+        '0 * * * * *',
+      );
 
-    const job = new (CronJob as any)({
-      cronTime: cronExpression,
-      onTick: () => this.run(),
-      start: false,
-      waitForCompletion: true,
-    });
+      if (!cronExp) {
+        throw new Error('Cron expression is required');
+      }
 
-    this.schedulerRegistry.addCronJob('archival', job);
-    job.start();
-
-    this.logger.log(
-      `filestorage:archival scheduler registered cron="${cronExpression}"`,
-    );
+      const job = new CronJob(
+        cronExp,
+        async () => await this.run(),
+        null,
+        false,
+        null,
+        null,
+        false,
+      );
+      this.schedulerRegistry.addCronJob('archival', job);
+      job.start();
+      this.logger.log(
+        `filestorage:archival secheduler registered cron="${cronExp}"`,
+      );
+    } catch (err) {
+      this.logger.error('filestorage:archival scheduler-init-error');
+      throw err;
+    }
   }
 
   private async run(): Promise<void> {
@@ -57,7 +68,8 @@ export class ArchivalScheduler implements OnModuleInit {
 
     try {
       const archiveAfterMs =
-        this.configService.get('ARCHIVE_AFTER_SECONDS', { infer: true }) * 1000;
+        this.configService.get<number>('app.archival.afterSeconds', 604800) *
+        1000;
 
       for await (const keys of this.scanKeys('file:*:*', 100)) {
         for (const key of keys) {
