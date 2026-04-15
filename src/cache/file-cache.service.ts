@@ -1,23 +1,22 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { REDIS_CLIENT } from './file-cache.module';
 import Redis from 'ioredis';
+import { REDIS_CLIENT } from './cache.constants';
 
 export interface FileMeta {
-  id: string; // File ID
-  type: string; // File type
-  location: 'hot' | 'archive'; // Current storage location (was 'status' in some docs)
-  createdAt: string; // ISO8601 timestamp of upload (was 'uploadedAt' in some docs)
-  contentType?: string; // MIME type (application/pdf, text/plain, etc.)
-  size?: number; // File size in bytes (optional)
+  id: string;
+  type: string;
+  location: 'hot' | 'archive';
+  createdAt: string;
+  contentType: string;
+  size?: number;
 }
 
 @Injectable()
 export class FileCacheService {
   private readonly logger = new Logger(FileCacheService.name);
 
-  // TODO: implement REDIS
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,

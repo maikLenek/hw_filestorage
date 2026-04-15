@@ -5,8 +5,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { CacheableMemory, Keyv } from 'cacheable';
 import KeyvRedis from '@keyv/redis';
 import Redis from 'ioredis';
-
-export const REDIS_CLIENT = 'REDIS_CLIENT';
+import { REDIS_CLIENT } from './cache.constants';
 @Global()
 @Module({
   imports: [
