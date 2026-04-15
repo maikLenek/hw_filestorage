@@ -4,8 +4,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ArchivalWorker } from './archival.worker';
 import { ArchivalScheduler } from './archival.scheduler';
 import { StorageModule } from '../storage/storage.module';
-
-export const ARCHIVAL_SERVICE = 'ARCHIVAL_SERVICE';
+import { ARCHIVAL_SERVICE } from './archival.constants';
 
 @Module({
   imports: [

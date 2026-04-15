@@ -4,9 +4,9 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { ClientProxy } from '@nestjs/microservices';
 import { CronJob } from 'cron';
 import Redis from 'ioredis';
-import { REDIS_CLIENT } from 'src/cache/cache.constants';
-import { ARCHIVAL_SERVICE } from './archival.module';
+import { REDIS_CLIENT } from '../cache/cache.constants';
 import { FileCacheService } from '../cache/file-cache.service';
+import { ARCHIVAL_SERVICE } from './archival.constants';
 
 @Injectable()
 export class ArchivalScheduler implements OnModuleInit {
