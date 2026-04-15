@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { REDIS_CLIENT } from './file-cache.module';
+import Redis from 'ioredis';
 
 export interface FileMeta {
   id: string; // File ID
@@ -16,7 +18,10 @@ export class FileCacheService {
   private readonly logger = new Logger(FileCacheService.name);
 
   // TODO: implement REDIS
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   private metaKey(type: string, id: string): string {
     return `file:${type}:${id}`;
@@ -47,5 +52,15 @@ export class FileCacheService {
     await this.cacheManager.del(key);
   }
 
-  // TODO: add REDIS implementation
+  async addId(type: string, id: string): Promise<void> {
+    await this.redis.sadd(this.listKey(type), id);
+  }
+
+  async removeId(type: string, id: string): Promise<void> {
+    await this.redis.srem(this.listKey(type), id);
+  }
+
+  async listsIds(type: string): Promise<string[]> {
+    return this.redis.smembers(this.listKey(type));
+  }
 }

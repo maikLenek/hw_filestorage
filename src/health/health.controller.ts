@@ -2,6 +2,7 @@ import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisOptions, RmqOptions, Transport } from '@nestjs/microservices';
 import {
+  DiskHealthIndicator,
   HealthCheck,
   HealthCheckService,
   MicroserviceHealthIndicator,
@@ -16,13 +17,20 @@ export class HealthController {
     private configService: ConfigService,
     private health: HealthCheckService,
     private microservice: MicroserviceHealthIndicator,
+    private readonly disk: DiskHealthIndicator,
   ) {}
 
   @Get()
   @HealthCheck()
   check() {
+    const storagePath =
+      this.configService.get<string>('app.hotStorage.apth') ?? '/hot-storage';
     return this.health.check([
-      // TODO: Add healt check for disk
+      async () =>
+        this.disk.checkStorage('storage', {
+          path: storagePath,
+          thresholdPercent: 0.9,
+        }),
       async () =>
         this.microservice.pingCheck<RedisOptions>('redis', {
           transport: Transport.REDIS,

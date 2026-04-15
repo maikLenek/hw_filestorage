@@ -28,7 +28,7 @@ export class FilesController {
     private configService: ConfigService,
   ) {
     this.maxFileSize =
-      this.configService.get('app.upload.maxSizeBytes') | 104857600;
+      this.configService.get('app.upload.maxSizeBytes') ?? 104857600;
   }
 
   @Post(':type/:id')
