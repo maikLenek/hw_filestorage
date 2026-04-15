@@ -1,15 +1,20 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
 import { FileCacheService } from '../cache/file-cache.service';
 import { HotStorageService } from '../storage/hot-storage.service';
 import { UploadFileResponseDto } from './dto/upload-file.dto';
+import { Readable } from 'stream';
 
 @Injectable()
 export class FilesService {
   private logger = new Logger(FilesService.name);
 
   constructor(
-    private configService: ConfigService,
     private fileCacheService: FileCacheService,
     private hotStorageService: HotStorageService,
   ) {}
@@ -44,10 +49,98 @@ export class FilesService {
       location: 'hot',
       createdAt,
       contentType,
+      size: buffer.length,
     });
 
-    // await this.fileCacheService.addId(type, id);
+    await this.fileCacheService.addId(type, id);
 
     return { type, id, location: 'hot' };
+  }
+
+  async download(
+    type: string,
+    id: string,
+  ): Promise<{ file: StreamableFile | Readable; contentType: string }> {
+    const meta = await this.fileCacheService.getFileMeta(type, id);
+
+    if (!meta) {
+      throw new NotFoundException(`File not found: type=${type} id=${id}`);
+    }
+
+    this.logger.log(
+      `filestorage:download type=${type} id=${id} location=${meta.location}`,
+    );
+
+    // Checing in hot -> disk storage
+    if (meta.location === 'hot') {
+      try {
+        const hotFile = await this.hotStorageService.read(type, id);
+        return { file: hotFile, contentType: meta.contentType };
+      } catch (err) {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(
+            `filestorage:download cache-stale type=${type} id=${id}`,
+          );
+          throw new NotFoundException(
+            `File not found on disk (stale cache): type=${type} id=${id}`,
+          );
+        }
+        throw err;
+      }
+    }
+
+    throw NotFoundException;
+    // checkig in archive
+    // TODO: implement archive storage
+  }
+
+  async delete(type: string, id: string): Promise<void> {
+    const meta = await this.fileCacheService.getFileMeta(type, id);
+
+    if (!meta) {
+      throw new NotFoundException(`File not found: type=${type} id=${id}`);
+    }
+
+    if (meta.location === 'hot') {
+      await this.hotStorageService.delete(type, id);
+    }
+
+    await this.fileCacheService.delFileMeta(type, id);
+    await this.fileCacheService.removeId(type, id);
+  }
+
+  async list(type: string): Promise<{ type: string; ids: string[] }> {
+    const ids = await this.fileCacheService.listsIds(type);
+    return { type, ids };
+  }
+
+  async batchExists(
+    type: string,
+    ids: string[],
+  ): Promise<{
+    type: string;
+    results: Array<{
+      id: string;
+      exists: boolean;
+      location: 'hot' | 'archive' | null;
+    }>;
+  }> {
+    const metaList = await Promise.all(
+      ids.map((id) => this.fileCacheService.getFileMeta(type, id)),
+    );
+    const results = ids.map((id, index) => {
+      const meta = metaList[index];
+      return {
+        id,
+        exists: meta !== null,
+        location: meta?.location ?? null,
+      };
+    });
+
+    const found = results.filter((r) => r.exists).length;
+    this.logger.log(
+      `filestorage:exists type=${type} requested=${ids.length} found=${found}`,
+    );
+    return { type, results };
   }
 }

@@ -55,7 +55,7 @@ export class HotStorageService {
     const sanitizedId = this.sanitizePath(id);
 
     // Create sharding directory from first 2 characters of ID
-    const shard = sanitizedId.substring(0, 2);
+    const shard = sanitizedId.slice(0, 2);
 
     const filePath = path.join(
       this.hotStoragePath,
