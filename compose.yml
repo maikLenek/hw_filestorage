@@ -78,7 +78,9 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - filestorage-network
+      filestorage-network:
+        aliases:
+          - filestorage-minio
     restart: unless-stopped
 
 
@@ -105,7 +107,7 @@ volumes:
     driver_opts:
       type: none
       device: ${PWD}/data/archive
-      o: bind 
+      o: bind
 
 networks:
   filestorage-network:

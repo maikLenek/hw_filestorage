@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { StorageModule } from './storage/storage.module';
 import { FileCacheModule } from './cache/file-cache.module';
 import { FilesModule } from './files/files.module';
+import { ArchivalModule } from './archival/archival.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { FilesModule } from './files/files.module';
     StorageModule,
     FileCacheModule,
     FilesModule,
+    ArchivalModule,
   ],
   controllers: [],
   providers: [],
