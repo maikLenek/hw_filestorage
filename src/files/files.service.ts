@@ -9,6 +9,7 @@ import { FileCacheService } from '../cache/file-cache.service';
 import { HotStorageService } from '../storage/hot-storage.service';
 import { UploadFileResponseDto } from './dto/upload-file.dto';
 import { Readable } from 'stream';
+import { ArchiveStorageService } from 'src/storage/archive-storage.service';
 
 @Injectable()
 export class FilesService {
@@ -17,6 +18,7 @@ export class FilesService {
   constructor(
     private fileCacheService: FileCacheService,
     private hotStorageService: HotStorageService,
+    private archiveStorageService: ArchiveStorageService,
   ) {}
 
   async upload(
@@ -89,9 +91,20 @@ export class FilesService {
       }
     }
 
-    throw NotFoundException;
-    // checkig in archive
-    // TODO: implement archive storage
+    try {
+      const readable = await this.archiveStorageService.get(type, id);
+      return { file: readable, contentType: meta.contentType };
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        this.logger.warn(
+          `filestorage:download archive-stale type=${type} id=${id}`,
+        );
+        throw new NotFoundException(
+          `File not found in archive (stale cache): type=${type} id=${id}`,
+        );
+      }
+      throw err;
+    }
   }
 
   async delete(type: string, id: string): Promise<void> {
