@@ -21,4 +21,4 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
